@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import { useRouter, useParams  } from "next/navigation";
 import ProtectedRoute from "@/components/protectedRoute";
-import { getUserPatientsWithEmail } from "@/lib/patient-db";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -23,7 +22,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-import { Field, FieldLabel } from "@/components/ui/field"
 import {
   Select,
   SelectContent,
@@ -35,7 +33,8 @@ import {
 } from "@/components/ui/select"
 
 import { getPatientById, updatePatientToDb, deletePatientFromDb } from "@/lib/patient-db";
-import { motion } from "framer-motion";
+import { useStatusToast } from "@/lib/useStatusToast";
+
 import {
   User,
   CalendarDays,
@@ -48,7 +47,6 @@ import {
   RefreshCcw,
   Cake
 } from "lucide-react";
-import { toast } from "sonner";
 
 type Patient = {
   patient_id: string;
@@ -78,6 +76,13 @@ const calculateAge = (dob: Date) => {
 
   return age;
 };
+
+//formnat cnic with dashes
+function formatCNIC(cnic : string) {
+    if (!cnic) return "";
+
+    return `${cnic.slice(0, 5)}-${cnic.slice(5, 12)}-${cnic.slice(12)}`;
+  }
 
 //displaying patient information 
 function DetailItem({
@@ -111,44 +116,35 @@ export default function PatientProfile() {
   const [editedDOB, setEditedDOB] = useState<Date>(new Date());
   const [editedGender, setEditedGender] = useState("");
   const [loading,setLoading]=useState(true)
-  const [message, setMessage]= useState<string | null>(null);
-  const [status,setStatus]=useState<string | null>(null);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const [statusData, setStatusData] = useState({status: "", message: ""});
+  useStatusToast(statusData);
 
   useEffect(() => {
         if (!id) return;
     fetchPatient();
   }, []);
 
-  //show required toast message (successful or unsuccessful deletion/editing of pitch)
-  useEffect(() => {
-    if (status==="success")
-      toast.success(message)
-    else if(status==="danger")
-      toast.error(message)
-
-  }, [message,status]);
-
-    //fetching data from db
-    const fetchPatient  = async () => {
+  //fetching data from db
+  const fetchPatient  = async () => {
     try {
-        setLoading(true)
-        const data = await getPatientById(id);
-        console.log(data)
+      setLoading(true)
+      const data = await getPatientById(id);
+      console.log(data)
 
-        const normalizedPatient: Patient = {
-        patient_id: String(data.patient_id),
-        name: data.name,
-        gender: data.gender,
-        cnic: String(data.cnic),
-        dob: new Date(data.dob),
-        created_at: new Date(data.created_at),
-        updated_at: data.updated_at ? new Date(data.updated_at) : undefined,
-        };
+      const normalizedPatient: Patient = {
+      patient_id: String(data.patient_id),
+      name: data.name,
+      gender: data.gender,
+      cnic: String(data.cnic),
+      dob: new Date(data.dob),
+      created_at: new Date(data.created_at),
+      updated_at: data.updated_at ? new Date(data.updated_at) : undefined,
+      };
 
-        setPatient(normalizedPatient);
+      setPatient(normalizedPatient);
       
     } catch (error) {
         console.error("Failed to get Data");
@@ -164,14 +160,17 @@ export default function PatientProfile() {
   };
   
   //edit patient
-  const editPatient = async (id: string, newName: string, newDOB: Date, newGender: string) => {
+  const editPatient = async (patient: Patient, id: string, newName: string, newDOB: Date, newGender: string) => {
     try{
+      //if no changes are made, no need to edit
+      if (newName===patient.name && newDOB===patient.dob && newGender===patient.gender)
+        return;
+
       setLoading(true);
       console.log("Saving")
       // console.log("Saving", id, newTitle, newBody);
       const res=await updatePatientToDb(id,newName,newDOB, newGender)
-      setMessage(res.message);
-      setStatus(res.status)
+      setStatusData({ status: res.status, message: res.message });
       await fetchPatient();
     }
     finally{
@@ -182,14 +181,22 @@ export default function PatientProfile() {
   //delete patient
   const deletePatient = async (id: string) => {
     try{
+      const confirmed = window.confirm(
+        "Are you sure you want to delete this patient? This action cannot be undone."
+      );
+      if (!confirmed) return;
+
       setLoading(true)
       console.log("Deleting")
       // console.log("Deleting", id);
       const res=await deletePatientFromDb(id)
-      setMessage(res.message);
-      setStatus(res.status)
-      await fetchPatient();
-      
+      setStatusData({ status: res.status, message: res.message });
+      // await fetchPatient();
+      if (res.status==='danger'){
+
+        //if successful delete redirect to dashboard
+         router.push("/dashboard");
+      }
     }
     finally{
       setLoading(false)
@@ -217,7 +224,7 @@ if (patient){
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-5xl font-bold mb-2 text-black font-dancing">Patient Profile</h1>
-              <p className="text-gray-600">CNIC: <span className="font-medium text-[#008080]">{patient.cnic}</span></p>
+              <p className="text-gray-600">CNIC: <span className="font-medium text-[#008080]">{formatCNIC(patient.cnic)}</span></p>
             </div>
             <button
               onClick={handleNewScan}
@@ -241,7 +248,7 @@ if (patient){
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
-                    className="gap-2"
+                    className="gap-2 cursor-pointer"
                     onClick={() => {
                       setEditedName(patient.name);
                       setEditedDOB(patient.dob);
@@ -255,7 +262,7 @@ if (patient){
 
                   <Button
                     variant="destructive"
-                    className="gap-2"
+                    className="gap-2 cursor-pointer"
                     onClick={() => deletePatient(patient.patient_id)}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -271,7 +278,7 @@ if (patient){
                 <DetailItem icon={<User />} label="Name" value={patient.name} />
 
                 {/* CNIC */}
-                <DetailItem icon={<IdCard />} label="CNIC" value={patient.cnic} />
+                <DetailItem icon={<IdCard />} label="CNIC" value={formatCNIC(patient.cnic)} />
 
                 {/* DOB */}
                 <DetailItem
@@ -303,7 +310,7 @@ if (patient){
                   <span>
                     Created on{" "}
                     <span className="font-medium text-gray-700">
-                      {patient.created_at.toLocaleDateString()}
+                      {patient.created_at.toLocaleString()}
                     </span>
                   </span>
                 </div>
@@ -313,7 +320,7 @@ if (patient){
                   <span>
                     Last updated{" "}
                     <span className="font-medium text-gray-700">
-                      {patient.updated_at?.toLocaleDateString() || "—"}
+                      {patient.updated_at?.toLocaleString() || "—"}
                     </span>
                   </span>
                 </div>
@@ -323,62 +330,42 @@ if (patient){
             </div>
           </div>
 
-          {/*Edit and Delete Sheet of Patient Info*/}
+          {/*Edit Sheet of Patient Info*/}
           <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
             <SheetContent>
               <SheetHeader>
                 <SheetTitle>Edit Patient</SheetTitle>
                 <SheetDescription>
-                  Update your patient information. Save to apply changes or
-                  delete permanently.
+                  Update your patient information. Save to apply changes.
                 </SheetDescription>
               </SheetHeader>
 
               <div className="grid flex-1 auto-rows-min gap-6 px-4 mt-4">
-                <div className="grid gap-3">
+
+                <div className="grid gap-1">
+                  <Label>CNIC</Label>
+                  <Input value={formatCNIC(patient.cnic)} readOnly disabled />
+                  <span className="text-xs text-muted-foreground">
+                    CNIC cannot be changed
+                  </span>
+                </div>
+
+
+                <div className="grid gap-1">
                   <Label>Name</Label>
                   <Input
                     value={editedName}
                     onChange={(e) => setEditedName(e.target.value)}
                   />
                 </div>
-
-                <div className="grid gap-3">
-                  <Label>Date of Birth</Label>
-                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          id="date"
-                          className="justify-start font-normal"
-                        >
-                          {editedDOB.toLocaleDateString()}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto overflow-hidden p-0" align="start">
-                        <Calendar
-                          mode="single"
-                          selected={editedDOB}
-                          defaultMonth={editedDOB}
-                          captionLayout="dropdown"
-                          onSelect={(date) => {
-                            if (date){
-                              setEditedDOB(date);
-                              setSheetOpen(false);
-                            }
-                          }}
-                        />
-                      </PopoverContent>
-                    </Popover>
-                </div>
-
-                <div className="grid gap-3">
+                
+                <div className="grid gap-1">
                   <Label>Gender</Label>
                   <Select
                     value={editedGender}
                     onValueChange={setEditedGender}
                   >
-                    <SelectTrigger className="w-full max-w-48">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select gender" />
                     </SelectTrigger>
                     <SelectContent>
@@ -390,26 +377,71 @@ if (patient){
                     </SelectContent>
                   </Select>
                 </div>
+
+                <div className="grid gap-1">
+                  <Label>Date of Birth</Label>
+
+                  <Popover
+                    open={calendarOpen}
+                    onOpenChange={setCalendarOpen}
+                    modal={false}
+                  >
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className="justify-start font-normal"
+                      >
+                        {editedDOB.toLocaleDateString()}
+                      </Button>
+                    </PopoverTrigger>
+
+                    <PopoverContent
+                      align="start"
+                      sideOffset={4}
+                      className="z-50 pointer-events-auto w-auto p-0"
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={editedDOB}
+                        defaultMonth={editedDOB}
+                        captionLayout="dropdown"
+                        onMonthChange={(month) => {
+                          const newDate = new Date(editedDOB);
+
+                          newDate.setFullYear(month.getFullYear());
+                          newDate.setMonth(month.getMonth());
+
+                          setEditedDOB(newDate);
+                        }}
+                        onSelect={(date) => {
+                          if (date) {
+                            setEditedDOB(date);
+                            setCalendarOpen(false);
+                          }
+                        }}
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+
+
+                <div className="grid gap-1">
+                  <Label>Age</Label>
+                  <Input value={`${calculateAge(editedDOB)}`} readOnly disabled/>
+                  <span className="text-xs text-muted-foreground">
+                    Age is calculated automatically from date of birth
+                  </span>
+                </div>
+
               </div>
 
-              <SheetFooter className="flex gap-2">
+              <SheetFooter>
                 <SheetClose asChild>
                   <Button
-                    variant="destructive"
-                    onClick={() =>
-                      deletePatient(patient.patient_id)
-                    }
-                    className="flex-1"
-                  >
-                    Delete
-                  </Button>
-                </SheetClose>
-
-                <SheetClose asChild>
-                  <Button
-                    className="flex-1 bg-[#008080]"
+                    className="flex-1 bg-[#008080] cursor-pointer"
                     onClick={() =>
                       editPatient(
+                        patient,
                         patient.patient_id,
                         editedName,
                         editedDOB,
