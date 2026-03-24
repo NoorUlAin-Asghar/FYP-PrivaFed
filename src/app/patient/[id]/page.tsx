@@ -77,6 +77,13 @@ const calculateAge = (dob: Date) => {
   return age;
 };
 
+//formnat cnic with dashes
+function formatCNIC(cnic : string) {
+    if (!cnic) return "";
+
+    return `${cnic.slice(0, 5)}-${cnic.slice(5, 12)}-${cnic.slice(12)}`;
+  }
+
 //displaying patient information 
 function DetailItem({
   icon,
@@ -217,7 +224,7 @@ if (patient){
           <div className="flex justify-between items-center">
             <div>
               <h1 className="text-5xl font-bold mb-2 text-black font-dancing">Patient Profile</h1>
-              <p className="text-gray-600">CNIC: <span className="font-medium text-[#008080]">{patient.cnic}</span></p>
+              <p className="text-gray-600">CNIC: <span className="font-medium text-[#008080]">{formatCNIC(patient.cnic)}</span></p>
             </div>
             <button
               onClick={handleNewScan}
@@ -271,7 +278,7 @@ if (patient){
                 <DetailItem icon={<User />} label="Name" value={patient.name} />
 
                 {/* CNIC */}
-                <DetailItem icon={<IdCard />} label="CNIC" value={patient.cnic} />
+                <DetailItem icon={<IdCard />} label="CNIC" value={formatCNIC(patient.cnic)} />
 
                 {/* DOB */}
                 <DetailItem
@@ -337,7 +344,7 @@ if (patient){
 
                 <div className="grid gap-1">
                   <Label>CNIC</Label>
-                  <Input value={patient.cnic} readOnly disabled />
+                  <Input value={formatCNIC(patient.cnic)} readOnly disabled />
                   <span className="text-xs text-muted-foreground">
                     CNIC cannot be changed
                   </span>

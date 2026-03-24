@@ -37,11 +37,11 @@ export default function Home() {
         A Privacy-Preserving Federated Learning Framework.
       </p>
 
-      <Link href={auth?"/generate":"/sign-in"} passHref>
+      <Link href={auth?"/addPatient":"/sign-in"} passHref>
         <Button
           className="font-dancing bg-black text-white font-black text-2xl px-5 py-5 rounded-2xl hover:bg-black cursor-pointer active:bg-transparent active:text-black"
         >
-          Generate
+          Add Patient
         </Button>
       </Link>
     </div>

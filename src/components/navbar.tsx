@@ -80,7 +80,7 @@ export function Navbar() {
                 <>
                 <NavigationMenuItem>
                   <NavigationMenuLink asChild className={navigationMenuTriggerStyle()}>
-                    <Link href="/dashboard">Dashboard</Link>
+                    <Link href="/patientDashboard">Dashboard</Link>
                   </NavigationMenuLink>
                 </NavigationMenuItem> 
                 <DropdownMenu>

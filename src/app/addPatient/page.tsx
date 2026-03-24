@@ -134,10 +134,10 @@ export default function SavePatientForm() {
     }
 
     try {
-      const exists = await cnicExistsForUser(user.id, cnic);
+      const exists = await cnicExistsForUser(user.id, cnic); //check if the parctioner already has a patient with this cnic
 
       if (exists) {
-        setErrors({ cnic: "This CNIC already exists for this user" });
+        setErrors({ cnic: "This CNIC already exists among your patients." });
         setSaving(false);
         return;
       }
@@ -209,6 +209,9 @@ export default function SavePatientForm() {
               )}
               <span className="text-xs text-muted-foreground">
                 CNIC cannot be changed afterwards.
+              </span>
+              <span className="text-xs text-muted-foreground">
+                Dashes will be added automatically.
               </span>
             </div>
 
