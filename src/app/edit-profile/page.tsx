@@ -16,6 +16,24 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
+/* ---------------- Helper Functions ---------------- */
+
+const formatPhone = (value: string): string => {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 4) return digits;
+  return `${digits.slice(0, 4)}-${digits.slice(4)}`;
+};
+
+const formatCNIC = (value: string): string => {
+  const digits = value.replace(/\D/g, "").slice(0, 13);
+
+  if (digits.length <= 5) return digits;
+  if (digits.length <= 12)
+    return `${digits.slice(0, 5)}-${digits.slice(5)}`;
+
+  return `${digits.slice(0, 5)}-${digits.slice(5, 12)}-${digits.slice(12)}`;
+};
+
 export default function EditProfilePage() {
   const router = useRouter();
 
@@ -24,11 +42,18 @@ export default function EditProfilePage() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [phone, setPhone] = useState(""); // 🔹 Added
-  const [gender, setGender] = useState(""); // 🔹 Added
+  const [phone, setPhone] = useState("");
+  const [gender, setGender] = useState("");
   const [cnic, setCnic] = useState("");
   const [dob, setDob] = useState("");
-  const [hasProfile, setHasProfile] = useState(false); // 🔹 Track existing profile
+
+  // 🔹 NEW STATES
+  const [hospital, setHospital] = useState("");
+  const [licenseNumber, setLicenseNumber] = useState("");
+  const [licenseAuthority, setLicenseAuthority] = useState("");
+  const [licenseExpiry, setLicenseExpiry] = useState("");
+
+  const [hasProfile, setHasProfile] = useState(false);
 
   /* ---------------- Load user data ---------------- */
   useEffect(() => {
@@ -44,17 +69,24 @@ export default function EditProfilePage() {
 
       const { data } = await supabase
         .from("profiles")
-        .select("full_name, phone, gender, cnic, dob") // 🔹 Updated columns
+        .select("*") // 🔹 fetch all including new fields
         .eq("id", user.id)
-        .maybeSingle(); // 🔹 Fixed: Use maybeSingle to avoid error for new users
+        .maybeSingle();
 
       if (data) {
         setName(data.full_name || "");
-        setPhone(data.phone || ""); // 🔹 Added
-        setGender(data.gender || ""); // 🔹 Added
-        setCnic(data.cnic || "");
+        setPhone(formatPhone(data.phone || ""));
+        setGender(data.gender || "");
+        setCnic(formatCNIC(data.cnic || ""));
         setDob(data.dob || "");
-        setHasProfile(true); // 🔹 Mark profile exists
+
+        // 🔹 LOAD NEW FIELDS
+        setHospital(data.hospital_affiliation || "");
+        setLicenseNumber(data.license_number || "");
+        setLicenseAuthority(data.license_authority || "");
+        setLicenseExpiry(data.license_expiry_date || "");
+
+        setHasProfile(true);
       }
 
       setLoading(false);
@@ -74,9 +106,17 @@ export default function EditProfilePage() {
       return;
     }
 
-    // Validation
+    const phoneDigits = phone.replace(/\D/g, "");
+    const cnicDigits = cnic.replace(/\D/g, "");
+
     if (!name.trim()) {
       toast.error("Full name is required");
+      setSaving(false);
+      return;
+    }
+
+    if (phone && phoneDigits.length !== 11) {
+      toast.error("Phone number must be exactly 11 digits");
       setSaving(false);
       return;
     }
@@ -87,7 +127,12 @@ export default function EditProfilePage() {
       return;
     }
 
-    // Check if profile exists
+    if (!hasProfile && cnicDigits.length !== 13) {
+      toast.error("CNIC must be exactly 13 digits");
+      setSaving(false);
+      return;
+    }
+
     const { data: existingProfile, error: fetchError } = await supabase
       .from("profiles")
       .select("id, cnic")
@@ -100,17 +145,22 @@ export default function EditProfilePage() {
       return;
     }
 
-    // 2️⃣ UPDATE (NO CNIC)
     if (existingProfile) {
       const { error } = await supabase
         .from("profiles")
         .update({
           full_name: name,
-          phone, // 🔹 Added
-          gender, // 🔹 Added
+          phone: phoneDigits || null,
+          gender,
           dob: dob,
+
+          // 🔹 NEW FIELDS
+          hospital_affiliation: hospital || null,
+          license_number: licenseNumber || null,
+          license_authority: licenseAuthority || null,
+          license_expiry_date: licenseExpiry || null,
+
           updated_at: new Date().toISOString(),
-          // ❌ Removed: bio, avatar_url
         })
         .eq("id", user.id);
 
@@ -119,22 +169,25 @@ export default function EditProfilePage() {
         setSaving(false);
         return;
       }
-    }
-
-    // 3️⃣ INSERT (CNIC allowed ONCE)
-    else {
+    } else {
       const { error } = await supabase
         .from("profiles")
         .insert({
           id: user.id,
-          email: user.email, // 🔹 Added (schema requires this)
+          email: user.email,
           full_name: name,
-          phone: phone || null, // 🔹 Added
-          gender: gender || null, // 🔹 Added
-          cnic: cnic || null,
+          phone: phoneDigits || null,
+          gender: gender || null,
+          cnic: cnicDigits || null,
           dob: dob || null,
+
+          // 🔹 NEW FIELDS
+          hospital_affiliation: hospital || null,
+          license_number: licenseNumber || null,
+          license_authority: licenseAuthority || null,
+          license_expiry_date: licenseExpiry || null,
+
           updated_at: new Date().toISOString(),
-          // ❌ Removed: bio, avatar_url
         });
 
       if (error) {
@@ -145,7 +198,7 @@ export default function EditProfilePage() {
     }
 
     toast.success("Profile saved successfully");
-    router.push("/dashboard");
+    router.push("/profile-summary");
     setSaving(false);
   };
 
@@ -164,40 +217,31 @@ export default function EditProfilePage() {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Name */}
           <div>
             <Label>Full Name *</Label>
-            <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Your name"
-            />
+            <Input value={name} onChange={(e) => setName(e.target.value)} />
           </div>
 
-          {/* Email */}
           <div>
             <Label>Email</Label>
             <Input value={email} disabled />
           </div>
 
-          {/* 🔹 Phone */}
           <div>
             <Label>Phone</Label>
             <Input
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhone(e.target.value))}
               placeholder="0300-1234567"
-              type="tel"
             />
           </div>
 
-          {/* 🔹 Gender */}
           <div>
             <Label>Gender</Label>
             <select
               value={gender}
               onChange={(e) => setGender(e.target.value)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex h-10 w-full rounded-md border px-3 py-2 text-sm"
             >
               <option value="">Select Gender</option>
               <option value="male">Male</option>
@@ -206,39 +250,49 @@ export default function EditProfilePage() {
             </select>
           </div>
 
-          {/* CNIC */}
           <div>
             <Label>CNIC {!hasProfile && "*"}</Label>
             <Input
               value={cnic}
-              onChange={(e) => setCnic(e.target.value)}
-              placeholder="12345-1234567-1"
-              disabled={hasProfile} // 🔹 Fixed: Disable based on profile existence
+              onChange={(e) => setCnic(formatCNIC(e.target.value))}
+              disabled={hasProfile}
             />
-            {hasProfile && (
-              <p className="text-xs text-muted-foreground mt-1">
-                CNIC cannot be changed once saved
-              </p>
-            )}
           </div>
 
-          {/* DOB */}
           <div>
             <Label>Date of Birth</Label>
+            <Input type="date" value={dob} onChange={(e) => setDob(e.target.value)} />
+          </div>
+
+          {/* 🔹 NEW UI FIELDS */}
+
+          <div>
+            <Label>Hospital Affiliation</Label>
+            <Input value={hospital} onChange={(e) => setHospital(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>License Number</Label>
+            <Input value={licenseNumber} onChange={(e) => setLicenseNumber(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>License Authority</Label>
+            <Input value={licenseAuthority} onChange={(e) => setLicenseAuthority(e.target.value)} />
+          </div>
+
+          <div>
+            <Label>License Expiry Date</Label>
             <Input
               type="date"
-              value={dob}
-              onChange={(e) => setDob(e.target.value)}
+              value={licenseExpiry}
+              onChange={(e) => setLicenseExpiry(e.target.value)}
             />
           </div>
         </CardContent>
 
         <CardFooter className="flex justify-end">
-          <Button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-[#008080] hover:bg-[#006666]"
-          >
+          <Button onClick={handleSave} disabled={saving}>
             {saving ? "Saving..." : "Save Changes"}
           </Button>
         </CardFooter>

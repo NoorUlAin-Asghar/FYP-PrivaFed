@@ -10,6 +10,11 @@ function normalizeDob(dob: string | null) {
   return dob.length === 10 ? dob : dob.split("T")[0]; // YYYY-MM-DD
 }
 
+function normalizeDate(date: string | null) {
+  if (!date) return null;
+  return date.length === 10 ? date : date.split("T")[0];
+}
+
 export async function getUserProfile() {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
@@ -37,13 +42,23 @@ export async function saveOrUpdateProfile({
   phone,
   gender,
   dob,
-  cnic, // 🔹 Added CNIC parameter
+  cnic,
+  hospital_affiliation,
+  license_number,
+  license_authority,
+  license_expiry_date,
 }: {
   full_name: string;
   phone: string;
   gender: string;
   dob: string;
-  cnic?: string; // 🔹 Optional because it's only set on creation
+  cnic?: string;
+
+  // 🔹 NEW FIELDS
+  hospital_affiliation?: string;
+  license_number?: string;
+  license_authority?: string;
+  license_expiry_date?: string;
 }) {
   const { data: { user }, error: userError } = await supabase.auth.getUser();
 
@@ -53,11 +68,12 @@ export async function saveOrUpdateProfile({
   }
 
   const normalizedDob = normalizeDob(dob);
+  const normalizedExpiry = normalizeDate(license_expiry_date || null);
 
-  // 1️⃣ Check if profile exists (including current CNIC if any)
+  // 1️⃣ Check if profile exists
   const { data: existingProfile, error: fetchError } = await supabase
     .from("profiles")
-    .select("id, cnic") // 🔹 Also fetch existing CNIC
+    .select("id, cnic")
     .eq("id", user.id)
     .maybeSingle();
 
@@ -66,7 +82,7 @@ export async function saveOrUpdateProfile({
     return { status: "danger", message: "Failed to check profile" };
   }
 
-  // 2️⃣ UPDATE (CNIC excluded - immutable after creation)
+  // 2️⃣ UPDATE
   if (existingProfile) {
     const { error } = await supabase
       .from("profiles")
@@ -75,8 +91,14 @@ export async function saveOrUpdateProfile({
         phone,
         gender,
         dob: normalizedDob,
+
+        // 🔹 NEW FIELDS
+        hospital_affiliation: hospital_affiliation || null,
+        license_number: license_number || null,
+        license_authority: license_authority || null,
+        license_expiry_date: normalizedExpiry,
+
         updated_at: new Date().toISOString(),
-        // ❌ Do not update cnic here - it should remain unchanged
       })
       .eq("id", user.id);
 
@@ -88,7 +110,7 @@ export async function saveOrUpdateProfile({
     return { status: "success", message: "Profile updated successfully" };
   }
 
-  // 3️⃣ INSERT (CNIC allowed only on creation)
+  // 3️⃣ INSERT
   const { error } = await supabase
     .from("profiles")
     .insert({
@@ -97,8 +119,15 @@ export async function saveOrUpdateProfile({
       full_name,
       phone,
       gender,
-      cnic: cnic || null, // 🔹 Add CNIC only on initial creation
+      cnic: cnic || null,
       dob: normalizedDob,
+
+      // 🔹 NEW FIELDS
+      hospital_affiliation: hospital_affiliation || null,
+      license_number: license_number || null,
+      license_authority: license_authority || null,
+      license_expiry_date: normalizedExpiry,
+
       updated_at: new Date().toISOString(),
     });
 
