@@ -97,110 +97,108 @@ export default function EditProfilePage() {
 
   /* ---------------- Save profile ---------------- */
   const handleSave = async () => {
-    setSaving(true);
+  setSaving(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      toast.error("Not authenticated");
-      setSaving(false);
-      return;
-    }
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    toast.error("Not authenticated");
+    setSaving(false);
+    return;
+  }
 
-    const phoneDigits = phone.replace(/\D/g, "");
-    const cnicDigits = cnic.replace(/\D/g, "");
+  const phoneDigits = phone.replace(/\D/g, "");
+  const cnicDigits = cnic.replace(/\D/g, "");
+  
+  // Basic validation
+  if (!name.trim()) { toast.error("Full name is required"); setSaving(false); return; }
+  if (phone && phoneDigits.length !== 11) { toast.error("Phone must be 11 digits"); setSaving(false); return; }
+  if (!hasProfile && !cnic.trim()) { toast.error("CNIC is required"); setSaving(false); return; }
+  if (!hasProfile && cnicDigits.length !== 13) { toast.error("CNIC must be 13 digits"); setSaving(false); return; }
 
-    if (!name.trim()) {
-      toast.error("Full name is required");
-      setSaving(false);
-      return;
-    }
-
-    if (phone && phoneDigits.length !== 11) {
-      toast.error("Phone number must be exactly 11 digits");
-      setSaving(false);
-      return;
-    }
-
-    if (!hasProfile && !cnic.trim()) {
-      toast.error("CNIC is required for initial profile creation");
-      setSaving(false);
-      return;
-    }
-
-    if (!hasProfile && cnicDigits.length !== 13) {
-      toast.error("CNIC must be exactly 13 digits");
-      setSaving(false);
-      return;
-    }
-
-    const { data: existingProfile, error: fetchError } = await supabase
+  // 🔹 UNIQUENESS CHECKS
+  if (cnicDigits) {
+    const { data: cnicExists } = await supabase
       .from("profiles")
-      .select("id, cnic")
-      .eq("id", user.id)
+      .select("id")
+      .eq("cnic", cnicDigits)
+      .neq("id", user.id) // ignore current user
       .maybeSingle();
 
-    if (fetchError) {
-      toast.error(fetchError.message);
+    if (cnicExists) {
+      toast.error("This CNIC is already registered");
       setSaving(false);
       return;
     }
+  }
 
-    if (existingProfile) {
-      const { error } = await supabase
-        .from("profiles")
-        .update({
-          full_name: name,
-          phone: phoneDigits || null,
-          gender,
-          dob: dob,
+  if (licenseNumber) {
+    const { data: licenseExists } = await supabase
+      .from("profiles")
+      .select("id")
+      .eq("license_number", licenseNumber)
+      .neq("id", user.id)
+      .maybeSingle();
 
-          // 🔹 NEW FIELDS
-          hospital_affiliation: hospital || null,
-          license_number: licenseNumber || null,
-          license_authority: licenseAuthority || null,
-          license_expiry_date: licenseExpiry || null,
-
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", user.id);
-
-      if (error) {
-        toast.error(error.message);
-        setSaving(false);
-        return;
-      }
-    } else {
-      const { error } = await supabase
-        .from("profiles")
-        .insert({
-          id: user.id,
-          email: user.email,
-          full_name: name,
-          phone: phoneDigits || null,
-          gender: gender || null,
-          cnic: cnicDigits || null,
-          dob: dob || null,
-
-          // 🔹 NEW FIELDS
-          hospital_affiliation: hospital || null,
-          license_number: licenseNumber || null,
-          license_authority: licenseAuthority || null,
-          license_expiry_date: licenseExpiry || null,
-
-          updated_at: new Date().toISOString(),
-        });
-
-      if (error) {
-        toast.error(error.message);
-        setSaving(false);
-        return;
-      }
+    if (licenseExists) {
+      toast.error("This License Number is already registered");
+      setSaving(false);
+      return;
     }
+  }
 
-    toast.success("Profile saved successfully");
-    router.push("/profile-summary");
-    setSaving(false);
-  };
+  // 🔹 Continue with insert/update logic
+  const { data: existingProfile, error: fetchError } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", user.id)
+    .maybeSingle();
+
+  if (fetchError) { toast.error(fetchError.message); setSaving(false); return; }
+
+  if (existingProfile) {
+    // Update
+    const { error } = await supabase
+      .from("profiles")
+      .update({
+        full_name: name,
+        phone: phoneDigits || null,
+        gender,
+        dob,
+        hospital_affiliation: hospital || null,
+        license_number: licenseNumber || null,
+        license_authority: licenseAuthority || null,
+        license_expiry_date: licenseExpiry || null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", user.id);
+
+    if (error) { toast.error(error.message); setSaving(false); return; }
+  } else {
+    // Insert
+    const { error } = await supabase
+      .from("profiles")
+      .insert({
+        id: user.id,
+        email: user.email,
+        full_name: name,
+        phone: phoneDigits || null,
+        gender: gender || null,
+        cnic: cnicDigits || null,
+        dob: dob || null,
+        hospital_affiliation: hospital || null,
+        license_number: licenseNumber || null,
+        license_authority: licenseAuthority || null,
+        license_expiry_date: licenseExpiry || null,
+        updated_at: new Date().toISOString(),
+      });
+
+    if (error) { toast.error(error.message); setSaving(false); return; }
+  }
+
+  toast.success("Profile saved successfully");
+  router.push("/profile-summary");
+  setSaving(false);
+};
 
   if (loading) return null;
 
