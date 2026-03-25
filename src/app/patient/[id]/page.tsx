@@ -192,10 +192,10 @@ export default function PatientProfile() {
       const res=await deletePatientFromDb(id)
       setStatusData({ status: res.status, message: res.message });
       // await fetchPatient();
-      if (res.status==='danger'){
+      if (res.status==='success'){
 
         //if successful delete redirect to dashboard
-         router.push("/dashboard");
+         router.push("/patientDashboard");
       }
     }
     finally{

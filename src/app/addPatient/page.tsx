@@ -150,7 +150,7 @@ export default function SavePatientForm() {
         user.id,
       );
       setStatusData({ status: res.status, message: res.message });
-      router.push("/dashboard");
+      router.push("/patientDashboard");
     } catch (err) {
       console.error(err);
       toast.error("Failed to save patient");
