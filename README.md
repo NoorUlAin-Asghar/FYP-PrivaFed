@@ -1,4 +1,4 @@
-
+<!-- 
 # 🎯 Pitch Writer
 
 Pitch Writer is a sleek, personalized pitch generation tool powered by AI. You can create, edit, and manage tailored pitches for job applications, cold emails, or personal branding — all in one place.
@@ -132,4 +132,4 @@ MIT License – free to use, modify, and distribute.
 
 ---
 
-© 2025 Pitch Writer. All rights reserved.
+© 2025 Pitch Writer. All rights reserved. -->
