@@ -76,7 +76,7 @@ export default function DocumentationPage() {
         <footer className="border-t pt-6 text-sm text-center text-gray-500">
           <p>© 2025 Privafed. All rights reserved.</p>
           <p>
-            <Link href="https://github.com/NoorUlAin-Asghar/Nexium_NoorUlAinAsghar" className="text-[#008080] underline">
+            <Link href="https://github.com/NoorUlAin-Asghar/FYP" className="text-[#008080] underline">
               View on GitHub
             </Link>
           </p>
