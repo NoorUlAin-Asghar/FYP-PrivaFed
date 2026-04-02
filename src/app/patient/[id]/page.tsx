@@ -154,10 +154,10 @@ export default function PatientProfile() {
     }
   };
 
-  //redirect to generate page
   const handleNewScan = () => {
-    router.push("/addScan");
-  };
+  if (!patient) return; // do nothing if patient not loaded yet
+  router.push(`/scan-upload?patientId=${patient.patient_id}`);
+};
   
   //edit patient
   const editPatient = async (patient: Patient, id: string, newName: string, newDOB: Date, newGender: string) => {
