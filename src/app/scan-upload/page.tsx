@@ -22,7 +22,6 @@ export default function ScanUploadPage() {
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  // Fetch patient name for display
   useEffect(() => {
     if (!patientId) return;
 
@@ -35,11 +34,20 @@ export default function ScanUploadPage() {
     fetchPatientName();
   }, [patientId]);
 
-  const handleUpload = async (e: React.FormEvent) => {
-    e.preventDefault();
-
+  // 🔹 Upload Function
+  const handleUpload = async () => {
     if (!patientId) return toast.error("Invalid patient");
     if (!scanFile) return toast.error("Please select a scan file");
+
+    // Validation
+    if (!scanFile.name.endsWith(".nii")) {
+      return toast.error("Only .nii files are allowed");
+    }
+
+    const pattern = /^sub-strokecase\d+_dwi\.nii$/;
+    if (!pattern.test(scanFile.name)) {
+      return toast.error("Filename must be like sub-strokecase0001_dwi.nii");
+    }
 
     setUploading(true);
 
@@ -48,10 +56,16 @@ export default function ScanUploadPage() {
       if (userError || !user) throw new Error("User not authenticated");
 
       const filePath = `scans/${user.id}/${Date.now()}-${scanFile.name}`;
-      const { error: uploadError } = await supabase.storage.from("scans").upload(filePath, scanFile);
+
+      const { error: uploadError } = await supabase.storage
+        .from("scans")
+        .upload(filePath, scanFile);
+
       if (uploadError) throw uploadError;
 
-      const { data: urlData } = supabase.storage.from("scans").getPublicUrl(filePath);
+      const { data: urlData } = supabase.storage
+        .from("scans")
+        .getPublicUrl(filePath);
 
       const res = await saveScanToDB({
         user_id: user.id,
@@ -64,7 +78,6 @@ export default function ScanUploadPage() {
       if (res.error) throw res.error;
 
       toast.success("Scan uploaded successfully!");
-      router.push(`/patient/${patientId}`); // back to patient profile
 
     } catch (err) {
       console.error(err);
@@ -72,6 +85,21 @@ export default function ScanUploadPage() {
     } finally {
       setUploading(false);
     }
+  };
+
+  // 🔹 Segmentation Button
+  const handleSegmentation = () => {
+    if (!patientId) {
+      toast.error("No patient selected");
+      return;
+    }
+
+    if (!scanFile) {
+      toast.error("Upload scan first");
+      return;
+    }
+
+    router.push(`/result-page?patientId=${patientId}`);
   };
 
   return (
@@ -83,32 +111,75 @@ export default function ScanUploadPage() {
           </CardTitle>
         </CardHeader>
 
-        <form onSubmit={handleUpload}>
-          <CardContent className="space-y-6">
+        <CardContent className="space-y-6">
 
-            <div className="grid gap-2">
-              <Label>Scan File *</Label>
-              <Input type="file" accept="image/*,.pdf,.dcm" onChange={(e) => setScanFile(e.target.files?.[0] || null)} />
+          {/* 🔹 File + Upload Button in same row */}
+          <div className="grid gap-2">
+            <Label>Scan File *</Label>
+            <div className="flex gap-2">
+              <Input
+                type="file"
+                accept=".nii"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  if (!file.name.endsWith(".nii")) {
+                    toast.error("Only .nii files are allowed");
+                    return;
+                  }
+
+                  const pattern = /^sub-strokecase\d+_dwi\.nii$/;
+                  if (!pattern.test(file.name)) {
+                    toast.error("Filename must be like sub-strokecase0001_dwi.nii");
+                    return;
+                  }
+
+                  setScanFile(file);
+                }}
+              />
+
+              <Button
+                type="button"
+                onClick={handleUpload}
+                disabled={uploading}
+              >
+                {uploading ? "Uploading..." : "Upload"}
+              </Button>
             </div>
+          </div>
 
-            <div className="grid gap-2">
-              <Label>Scan Type</Label>
-              <Input placeholder="e.g MRI, CT Scan" value={scanType} onChange={(e) => setScanType(e.target.value)} />
-            </div>
+          {/* 🔹 Scan Type */}
+          <div className="grid gap-2">
+            <Label>Scan Type</Label>
+            <Input
+              placeholder="e.g MRI, CT Scan"
+              value={scanType}
+              onChange={(e) => setScanType(e.target.value)}
+            />
+          </div>
 
-            <div className="grid gap-2">
-              <Label>Notes</Label>
-              <Input placeholder="Optional notes" value={notes} onChange={(e) => setNotes(e.target.value)} />
-            </div>
+          {/* 🔹 Notes */}
+          <div className="grid gap-2">
+            <Label>Notes</Label>
+            <Input
+              placeholder="Optional notes"
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+            />
+          </div>
 
-          </CardContent>
+        </CardContent>
 
-          <CardFooter>
-            <Button className="w-full" disabled={uploading}>
-              {uploading ? "Uploading..." : "Upload Scan"}
-            </Button>
-          </CardFooter>
-        </form>
+        {/* 🔹 Only Segmentation button in footer */}
+        <CardFooter>
+          <Button
+            className="w-full"
+            onClick={handleSegmentation}
+          >
+            Run Segmentation
+          </Button>
+        </CardFooter>
       </Card>
     </div>
   );
