@@ -151,13 +151,6 @@ export default function ScanUploadPage() {
                 }}
               />
 
-              <Button
-                type="button"
-                onClick={handleUpload}
-                disabled={uploading}
-              >
-                {uploading ? "Uploading..." : "Upload"}
-              </Button>
             </div>
           </div>
 
@@ -184,11 +177,23 @@ export default function ScanUploadPage() {
         </CardContent>
 
         {/* 🔹 Segmentation */}
-        <CardFooter>
-          <Button className="w-full" onClick={handleSegmentation}>
-            Run Segmentation
-          </Button>
-        </CardFooter>
+              <CardFooter className="flex gap-3">
+        <Button
+          type="button"
+          onClick={handleUpload}
+          disabled={uploading}
+          className="w-1/2"
+        >
+          {uploading ? "Uploading..." : "Upload Scan"}
+        </Button>
+
+        <Button
+          className="w-1/2"
+          onClick={handleSegmentation}
+        >
+          Run Segmentation
+        </Button>
+      </CardFooter>
       </Card>
     </div>
   );
