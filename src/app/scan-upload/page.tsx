@@ -22,6 +22,9 @@ export default function ScanUploadPage() {
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
 
+  const [scanId, setScanId] = useState<string | null>(null); // ✅ NEW
+
+  // 🔹 Fetch patient name
   useEffect(() => {
     if (!patientId) return;
 
@@ -39,7 +42,6 @@ export default function ScanUploadPage() {
     if (!patientId) return toast.error("Invalid patient");
     if (!scanFile) return toast.error("Please select a scan file");
 
-    // Validation
     if (!scanFile.name.endsWith(".nii")) {
       return toast.error("Only .nii files are allowed");
     }
@@ -57,31 +59,46 @@ export default function ScanUploadPage() {
 
       const filePath = `scans/${user.id}/${Date.now()}-${scanFile.name}`;
 
+      // 🔹 Upload to correct bucket
       const { error: uploadError } = await supabase.storage
-        .from("scans")
-        .upload(filePath, scanFile);
+        .from("ScanRecord") // ⚠️ MAKE SURE THIS MATCHES YOUR BUCKET
+        .upload(filePath, scanFile, {
+          contentType: "application/octet-stream",
+        });
 
       if (uploadError) throw uploadError;
 
       const { data: urlData } = supabase.storage
-        .from("scans")
+        .from("ScanRecord")
         .getPublicUrl(filePath);
 
-      const res = await saveScanToDB({
-        user_id: user.id,
-        patient_id: patientId,
-        scan_type: scanType,
-        notes,
-        file_url: urlData.publicUrl,
-      });
+      // 🔥 IMPORTANT: get inserted row (with scan_id)
+      const { data, error } = await supabase
+        .from("scans")
+        .insert([
+          {
+            user_id: user.id,
+            patient_id: patientId,
+            scan_type: scanType,
+            notes,
+            file_url: urlData.publicUrl,
+            created_at: new Date().toISOString(),
+          },
+        ])
+        .select()
+        .single();
 
-      if (res.error) throw res.error;
+      if (error) throw error;
+
+      console.log("✅ SCAN ID:", data.scan_id);
+
+      setScanId(data.scan_id); // ✅ store scanId
 
       toast.success("Scan uploaded successfully!");
 
-    } catch (err) {
-      console.error(err);
-      toast.error("Upload failed");
+    } catch (err: any) {
+      console.error("🔥 ERROR:", err);
+      toast.error(err?.message || "Upload failed");
     } finally {
       setUploading(false);
     }
@@ -89,17 +106,12 @@ export default function ScanUploadPage() {
 
   // 🔹 Segmentation Button
   const handleSegmentation = () => {
-    if (!patientId) {
-      toast.error("No patient selected");
-      return;
-    }
-
-    if (!scanFile) {
+    if (!scanId) {
       toast.error("Upload scan first");
       return;
     }
 
-    router.push(`/result-page?patientId=${patientId}`);
+    router.push(`/result-page?scanId=${scanId}`);
   };
 
   return (
@@ -113,7 +125,7 @@ export default function ScanUploadPage() {
 
         <CardContent className="space-y-6">
 
-          {/* 🔹 File + Upload Button in same row */}
+          {/* 🔹 File + Upload */}
           <div className="grid gap-2">
             <Label>Scan File *</Label>
             <div className="flex gap-2">
@@ -171,12 +183,9 @@ export default function ScanUploadPage() {
 
         </CardContent>
 
-        {/* 🔹 Only Segmentation button in footer */}
+        {/* 🔹 Segmentation */}
         <CardFooter>
-          <Button
-            className="w-full"
-            onClick={handleSegmentation}
-          >
+          <Button className="w-full" onClick={handleSegmentation}>
             Run Segmentation
           </Button>
         </CardFooter>

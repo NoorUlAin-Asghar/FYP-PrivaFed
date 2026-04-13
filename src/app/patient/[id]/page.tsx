@@ -58,11 +58,6 @@ type Patient = {
   updated_at:  Date | undefined;
 };
 
-type Scan = {
-  scan_id: string;
-  scan_name: string;
-  created_at: Date;
-};
 
 //calculating age from date of birth
 const calculateAge = (dob: Date) => {
