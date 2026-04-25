@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ScanRecord, getScansByPatientId } from "@/lib/scan-db";
 import { useRouter, useParams  } from "next/navigation";
 import ProtectedRoute from "@/components/protectedRoute";
 import { Input } from "@/components/ui/input";
@@ -105,6 +106,7 @@ function DetailItem({
 export default function PatientProfile() {
   const { id } = useParams<{ id: string }>();
   const [patient, setPatient] = useState<Patient>();
+  const [scans, setScans] = useState<ScanRecord[]>([]);
   const router = useRouter();
   
   const [editedName, setEditedName] = useState("");
@@ -118,9 +120,19 @@ export default function PatientProfile() {
   useStatusToast(statusData);
 
   useEffect(() => {
-        if (!id) return;
-    fetchPatient();
-  }, []);
+  if (!id) return;
+  fetchPatient();
+  fetchScans();
+}, []);
+
+const fetchScans = async () => {
+  try {
+    const data = await getScansByPatientId(id);
+    setScans(data || []);
+  } catch (err) {
+    console.error("Failed to fetch scans");
+  }
+};
 
   //fetching data from db
   const fetchPatient  = async () => {
@@ -462,12 +474,60 @@ if (patient){
           </div> */}
 
           <div className="mt-10">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Patient Scans
-          </h2>
+  <h2 className="text-lg font-semibold text-gray-800 mb-4">
+    Patient Scans
+  </h2>
 
-          
+  {scans.length === 0 ? (
+    <p className="text-gray-500">No scans uploaded yet.</p>
+  ) : (
+    <div className="grid gap-4">
+      {scans.map((scan) => (
+        <div
+          key={scan.scan_id}
+          className="p-4 bg-white rounded-xl shadow flex justify-between items-center"
+        >
+          <div>
+            <p className="font-semibold text-gray-900">
+              {scan.scan_type || "Unknown Scan"}
+            </p>
+
+            <p className="text-sm text-gray-500">
+              {scan.notes || "No notes"}
+            </p>
+
+            <p className="text-xs text-gray-400">
+              {scan.created_at
+                ? new Date(scan.created_at).toLocaleString()
+                : ""}
+            </p>
+          </div>
+
+          <div className="flex gap-3 items-center">
+            {/* View File */}
+            <a
+              href={scan.file_url}
+              target="_blank"
+              className="text-[#008080] font-medium hover:underline"
+            >
+              View
+            </a>
+
+            {/* Run Segmentation */}
+            <button
+              onClick={() =>
+                router.push(`/result-page?scanId=${scan.scan_id}`)
+              }
+              className="px-3 py-1 bg-[#008080] text-white rounded-lg text-sm"
+            >
+              Segment
+            </button>
+          </div>
         </div>
+      ))}
+    </div>
+  )}
+</div>
 
         </div>
       </div>

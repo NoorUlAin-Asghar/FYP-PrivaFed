@@ -61,7 +61,7 @@ export default function ScanUploadPage() {
 
       // 🔹 Upload to correct bucket
       const { error: uploadError } = await supabase.storage
-        .from("ScanRecord") // ⚠️ MAKE SURE THIS MATCHES YOUR BUCKET
+        .from("ScanRecord") // 
         .upload(filePath, scanFile, {
           contentType: "application/octet-stream",
         });
@@ -188,11 +188,12 @@ export default function ScanUploadPage() {
         </Button>
 
         <Button
-          className="w-1/2"
-          onClick={handleSegmentation}
-        >
-          Run Segmentation
-        </Button>
+  className="w-1/2"
+  onClick={handleSegmentation}
+  disabled={!scanId}
+>
+  Run Segmentation
+</Button>
       </CardFooter>
       </Card>
     </div>

@@ -71,3 +71,19 @@ export async function getScanById(scanId: string) {
 
   return { scan: data };
 }
+
+
+export const getScansByPatientId = async (patientId: string) => {
+  const { data, error } = await supabase
+    .from("scans")
+    .select("*")
+    .eq("patient_id", patientId)
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching scans:", error);
+    throw error;
+  }
+
+  return data;
+};
