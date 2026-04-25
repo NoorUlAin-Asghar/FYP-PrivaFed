@@ -1,44 +1,57 @@
 import supabase from "./supabaseClient";
 
 export interface ScanRecord {
-  scan_id?: string; // ✅ NEW
+  scan_id?: string;
   user_id: string;
   patient_id: string;
   scan_type?: string;
   notes?: string;
   file_url: string;
   created_at?: string;
+  segmented_url?: string;
+  original_slice_url?: string;
+  segmented_at?: string;
 }
 
-/**
- * Save scan metadata to DB (UPDATED)
- */
 export async function saveScanToDB(scan: ScanRecord) {
   scan.created_at = new Date().toISOString();
 
   const { data, error } = await supabase
     .from("scans")
     .insert([scan])
-    .select()           // ✅ IMPORTANT
-    .single();          // ✅ get single inserted row
+    .select()
+    .single();
 
   if (error) {
     console.error("Error saving scan", error.message);
     return { status: "danger", message: "Failed to save scan", error };
   }
 
-  console.log("✅ Scan saved:", data);
-
-  return {
-    status: "success",
-    message: "Scan saved successfully",
-    data,               // ✅ includes scan_id
-  };
+  return { status: "success", message: "Scan saved successfully", data };
 }
 
-/**
- * Get scans for a specific patient
- */
+export async function updateScanSegmentation(
+  scanId: string,
+  segmentedUrl: string,
+  originalSliceUrl: string
+) {
+  const { error } = await supabase
+    .from("scans")
+    .update({
+      segmented_url: segmentedUrl,
+      original_slice_url: originalSliceUrl,
+      segmented_at: new Date().toISOString(),
+    })
+    .eq("scan_id", scanId);
+
+  if (error) {
+    console.error("Error saving segmentation result", error.message);
+    return { status: "danger", message: "Failed to save segmentation result" };
+  }
+
+  return { status: "success", message: "Segmentation result saved" };
+}
+
 export async function getScansForPatient(patientId: string) {
   const { data, error } = await supabase
     .from("scans")
@@ -54,9 +67,6 @@ export async function getScansForPatient(patientId: string) {
   return { scans: data };
 }
 
-/**
- * 🔥 NEW: Get scan by scanId (VERY IMPORTANT)
- */
 export async function getScanById(scanId: string) {
   const { data, error } = await supabase
     .from("scans")
