@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/select"
 
 import { getPatientById, updatePatientToDb, deletePatientFromDb } from "@/lib/patient-db";
+import { getScansForPatient } from "@/lib/scan-db";
 import { useStatusToast } from "@/lib/useStatusToast";
 
 import {
@@ -43,9 +44,13 @@ import {
   Pencil,
   Trash2,
   Plus,
-  Clock, 
+  Clock,
   RefreshCcw,
-  Cake
+  Cake,
+  ScanLine,
+  FileText,
+  CheckCircle2,
+  HourglassIcon,
 } from "lucide-react";
 
 type Patient = {
@@ -54,15 +59,21 @@ type Patient = {
   name: string;
   dob: Date;
   gender: string;
-  created_at: Date; 
-  updated_at:  Date | undefined;
+  created_at: Date;
+  updated_at: Date | undefined;
 };
 
 type Scan = {
   scan_id: string;
-  scan_name: string;
-  created_at: Date;
+  scan_type: string;
+  notes: string;
+  file_url: string;
+  created_at: string;
+  segmented_url: string | null;
+  original_slice_url: string | null;
+  segmented_at: string | null;
 };
+
 
 //calculating age from date of birth
 const calculateAge = (dob: Date) => {
@@ -119,12 +130,15 @@ export default function PatientProfile() {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  const [scans, setScans] = useState<Scan[]>([]);
+
   const [statusData, setStatusData] = useState({status: "", message: ""});
   useStatusToast(statusData);
 
   useEffect(() => {
-        if (!id) return;
+    if (!id) return;
     fetchPatient();
+    fetchScans();
   }, []);
 
   //fetching data from db
@@ -154,9 +168,14 @@ export default function PatientProfile() {
     }
   };
 
-  //redirect to generate page
+  const fetchScans = async () => {
+    const { scans: data } = await getScansForPatient(id);
+    setScans(data as Scan[]);
+  };
+
   const handleNewScan = () => {
-    router.push("/addScan");
+    if (!patient) return;
+    router.push(`/scan-upload?patientId=${patient.patient_id}`);
   };
   
   //edit patient
@@ -466,13 +485,91 @@ if (patient){
             </div>
           </div> */}
 
+          {/* Patient Scan History — UC 4.11 */}
           <div className="mt-10">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">
-            Patient Scans
-          </h2>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4 font-dancing">
+              Scan History
+            </h2>
 
-          
-        </div>
+            {scans.length === 0 ? (
+              <div className="text-center text-gray-500 py-10 border border-dashed rounded-xl">
+                No historical data available for this patient.
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {scans.map((scan) => (
+                  <div
+                    key={scan.scan_id}
+                    className="bg-white rounded-2xl shadow-md border border-gray-100 p-5"
+                  >
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                      {/* Scan info */}
+                      <div className="flex items-start gap-3">
+                        <ScanLine className="w-6 h-6 text-[#008080] mt-1 shrink-0" />
+                        <div>
+                          <p className="font-semibold text-gray-900">
+                            {scan.scan_type || "MRI Scan"}
+                          </p>
+                          {scan.notes && (
+                            <p className="text-sm text-gray-500 mt-0.5">{scan.notes}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-1">
+                            Uploaded: {new Date(scan.created_at).toLocaleString()}
+                          </p>
+                          {scan.segmented_at && (
+                            <p className="text-xs text-teal-600 mt-0.5 flex items-center gap-1">
+                              <CheckCircle2 className="w-3 h-3" />
+                              Analysed: {new Date(scan.segmented_at).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Segmented thumbnail + actions */}
+                      <div className="flex items-center gap-3 flex-wrap">
+                        {scan.segmented_url ? (
+                          <img
+                            src={scan.segmented_url}
+                            alt="Segmented"
+                            className="w-16 h-16 rounded-lg object-cover border-2 border-teal-400"
+                          />
+                        ) : (
+                          <div className="flex items-center gap-1 text-xs text-gray-400">
+                            <HourglassIcon className="w-3 h-3" />
+                            Not yet analysed
+                          </div>
+                        )}
+
+                        <Button
+                          size="sm"
+                          className="bg-[#008080] hover:bg-teal-800 text-white"
+                          onClick={() =>
+                            router.push(`/result-page?scanId=${scan.scan_id}`)
+                          }
+                        >
+                          {scan.segmented_url ? "View Result" : "Run Segmentation"}
+                        </Button>
+
+                        {scan.segmented_url && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="gap-1"
+                            onClick={() =>
+                              router.push(`/report/${scan.scan_id}`)
+                            }
+                          >
+                            <FileText className="w-3 h-3" />
+                            Report
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
         </div>
       </div>
