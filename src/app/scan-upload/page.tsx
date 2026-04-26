@@ -188,11 +188,12 @@ export default function ScanUploadPage() {
         </Button>
 
         <Button
-          className="w-1/2"
-          onClick={handleSegmentation}
-        >
-          Run Segmentation
-        </Button>
+  className="w-1/2"
+  onClick={handleSegmentation}
+  disabled={!scanId}
+>
+  Run Segmentation
+</Button>
       </CardFooter>
       </Card>
     </div>

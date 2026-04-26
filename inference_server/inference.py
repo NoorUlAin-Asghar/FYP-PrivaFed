@@ -16,7 +16,7 @@ from monai.transforms import (
 )
 from PIL import Image
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "best_global_model.pth")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), "..", "best_global_model.pth")
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
