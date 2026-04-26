@@ -77,11 +77,22 @@ def _run_inference_on_file(tmp_path: str) -> dict:
 
     image_np = data["image"][0].cpu().numpy()
     mask_np = pred_mask[0, 0].cpu().numpy()
-    mid = image_np.shape[2] // 2
+    
+    # Return ALL slices instead of just the middle one
+    total_slices = image_np.shape[2]
+    original_slices = []
+    segmented_slices = []
+    
+    for i in range(total_slices):
+        original_slices.append(_to_base64_png(image_np[:, :, i]))
+        segmented_slices.append(_to_base64_png(mask_np[:, :, i]))
 
     return {
-        "original_url": _to_base64_png(image_np[:, :, mid]),
-        "segmented_url": _to_base64_png(mask_np[:, :, mid]),
+        "original_slices": original_slices,
+        "segmented_slices": segmented_slices,
+        # Keep these for backward compatibility
+        "original_url": original_slices[total_slices // 2],
+        "segmented_url": segmented_slices[total_slices // 2],
     }
 
 

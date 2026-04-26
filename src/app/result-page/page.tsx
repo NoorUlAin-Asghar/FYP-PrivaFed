@@ -14,8 +14,9 @@ export default function ResultPage() {
   const scanId = searchParams.get("scanId");
 
   const [loading, setLoading] = useState(true);
-  const [originalUrl, setOriginalUrl] = useState<string | null>(null);
-  const [segmentedUrl, setSegmentedUrl] = useState<string | null>(null);
+  const [originalSlices, setOriginalSlices] = useState<string[]>([]);
+  const [segmentedSlices, setSegmentedSlices] = useState<string[]>([]);
+  const [currentSlice, setCurrentSlice] = useState(0);
 
   useEffect(() => {
     if (!scanId) {
@@ -29,14 +30,6 @@ export default function ResultPage() {
         const { scan, error } = await getScanById(scanId!);
         if (error || !scan) throw new Error("Scan not found");
 
-        // Use cached result if already segmented
-        if (scan.segmented_url && scan.original_slice_url) {
-          setOriginalUrl(scan.original_slice_url);
-          setSegmentedUrl(scan.segmented_url);
-          return;
-        }
-
-        // Otherwise run the model and persist the result
         const res = await fetch("/api/segment", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -46,8 +39,12 @@ export default function ResultPage() {
         const result = await res.json();
         if (!res.ok) throw new Error(result.error ?? "Segmentation failed");
 
-        setOriginalUrl(result.original_url);
-        setSegmentedUrl(result.segmented_url);
+        const origSlices: string[] = result.original_slices ?? [result.original_url];
+        const segSlices: string[] = result.segmented_slices ?? [result.segmented_url];
+
+        setOriginalSlices(origSlices);
+        setSegmentedSlices(segSlices);
+        setCurrentSlice(Math.floor(origSlices.length / 2)); // start at middle
       } catch (err: any) {
         console.error(err);
         toast.error(err.message ?? "Failed to load segmentation");
@@ -58,6 +55,8 @@ export default function ResultPage() {
 
     runSegmentation();
   }, [scanId]);
+
+  const totalSlices = originalSlices.length;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-r from-[#0f2027] via-[#203a43] to-[#2c5364] p-6">
@@ -76,13 +75,30 @@ export default function ResultPage() {
             </div>
           )}
 
-          {!loading && segmentedUrl && (
+          {!loading && totalSlices > 0 && (
             <>
+              {/* Slice slider */}
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm text-muted-foreground">
+                  <span>Slice</span>
+                  <span>{currentSlice + 1} / {totalSlices}</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={totalSlices - 1}
+                  value={currentSlice}
+                  onChange={(e) => setCurrentSlice(Number(e.target.value))}
+                  className="w-full accent-teal-500"
+                />
+              </div>
+
+              {/* Images */}
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
-                  <h2 className="text-lg font-semibold mb-2">Original Scan (mid axial slice)</h2>
+                  <h2 className="text-lg font-semibold mb-2">Original Scan</h2>
                   <img
-                    src={originalUrl || ""}
+                    src={originalSlices[currentSlice]}
                     alt="Original"
                     className="rounded-xl shadow-md w-full"
                   />
@@ -90,7 +106,7 @@ export default function ResultPage() {
                 <div>
                   <h2 className="text-lg font-semibold mb-2">Segmented Output</h2>
                   <img
-                    src={segmentedUrl}
+                    src={segmentedSlices[currentSlice]}
                     alt="Segmented"
                     className="rounded-xl shadow-md border-2 border-teal-500 w-full"
                   />
@@ -110,7 +126,7 @@ export default function ResultPage() {
             </>
           )}
 
-          {!loading && !segmentedUrl && (
+          {!loading && totalSlices === 0 && (
             <div className="text-center text-red-500">
               No segmentation result available
             </div>
