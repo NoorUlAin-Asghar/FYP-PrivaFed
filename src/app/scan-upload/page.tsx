@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import supabase from "@/lib/supabaseClient";
 import { toast } from "sonner";
 import { getUserPatientsWithEmail } from "@/lib/patient-db";
 import { saveScanToDB } from "@/lib/scan-db";
+import { X, FileText } from "lucide-react";
 
 export default function ScanUploadPage() {
   const router = useRouter();
@@ -22,7 +23,8 @@ export default function ScanUploadPage() {
   const [notes, setNotes] = useState("");
   const [uploading, setUploading] = useState(false);
 
-  const [scanId, setScanId] = useState<string | null>(null); // ✅ NEW
+  const [scanId, setScanId] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // 🔹 Fetch patient name
   useEffect(() => {
@@ -104,6 +106,11 @@ export default function ScanUploadPage() {
     }
   };
 
+  const clearScanFile = () => {
+    setScanFile(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   // 🔹 Segmentation Button
   const handleSegmentation = () => {
     if (!scanId) {
@@ -128,8 +135,25 @@ export default function ScanUploadPage() {
           {/* 🔹 File + Upload */}
           <div className="grid gap-2">
             <Label>Scan File *</Label>
-            <div className="flex gap-2">
+
+            {scanFile ? (
+              <div className="flex items-center gap-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
+                <FileText className="h-4 w-4 shrink-0 text-teal-600" />
+                <span className="flex-1 truncate text-sm">{scanFile.name}</span>
+                {!scanId && (
+                  <button
+                    type="button"
+                    onClick={clearScanFile}
+                    className="ml-1 rounded-full p-0.5 text-gray-400 hover:bg-gray-200 hover:text-gray-700"
+                    aria-label="Remove file"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+            ) : (
               <Input
+                ref={fileInputRef}
                 type="file"
                 accept=".nii"
                 onChange={(e) => {
@@ -150,8 +174,7 @@ export default function ScanUploadPage() {
                   setScanFile(file);
                 }}
               />
-
-            </div>
+            )}
           </div>
 
           {/* 🔹 Scan Type */}
